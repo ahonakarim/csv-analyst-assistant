@@ -28,6 +28,23 @@ pip install -r requirements.txt
 streamlit run app/main.py
 ```
 
+## Frontend (MVP)
+
+The Streamlit frontend lets you:
+
+- upload a CSV file
+- preview the dataset and view basic dataset stats/columns
+- ask a natural-language question (or use example question buttons)
+- view the interpreted structured query
+- view returned outputs (message, scalar value, table, chart when available)
+
+Supported query types are limited to:
+
+- `summary_stat`
+- `grouped_aggregation`
+- `filtered_aggregation`
+- `time_series`
+
 ## Evaluation
 
 This repo includes scripts and data scaffolding for benchmarking the router/intent parsing and end-to-end correctness.
