@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import streamlit as st
@@ -19,11 +20,17 @@ if str(REPO_ROOT) not in sys.path:
 from app.analytics import execute_structured_query
 from app.llm_router import parse_question_to_structured_query
 
+SUPPORTED_DATASETS: list[str] = [
+    "online_retail_ii",
+    "yellow_tripdata_2026_01",
+    "insurance",
+]
+
 EXAMPLE_QUESTIONS: list[str] = [
-    "What is the average value of sales?",
-    "Show total revenue by region.",
-    "What is the average charge for smokers?",
-    "Show monthly trends of revenue over time.",
+    "What is the average charges?",
+    "What is the total quantity by country?",
+    "What is the average fare_amount where trip_distance > 5?",
+    "What is the weekly total fare_amount over time?",
 ]
 
 
@@ -50,15 +57,25 @@ def _render_examples() -> None:
 
 
 def _load_uploaded_csv() -> pd.DataFrame | None:
-    """Load CSV from uploader and return dataframe or None."""
-    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
-    if uploaded_file is None:
+    """Load selected dataset from processed path, then raw path."""
+    dataset_name = st.selectbox("Choose a dataset", SUPPORTED_DATASETS)
+    st.session_state["selected_dataset"] = dataset_name
+
+    processed_cleaned_path = REPO_ROOT / "data" / "processed" / f"{dataset_name}_cleaned.csv"
+    processed_path = REPO_ROOT / "data" / "processed" / f"{dataset_name}.csv"
+    raw_path = REPO_ROOT / "data" / "raw" / f"{dataset_name}.csv"
+    candidates = [processed_path, processed_cleaned_path, raw_path]
+
+    chosen_path = next((path for path in candidates if path.exists()), None)
+    if chosen_path is None:
+        _render_error(f"Dataset file not found for '{dataset_name}'.")
         return None
 
     try:
-        return pd.read_csv(uploaded_file)
+        st.caption(f"Source: `{chosen_path.relative_to(REPO_ROOT)}`")
+        return pd.read_csv(chosen_path, low_memory=False)
     except Exception:
-        _render_error("Invalid CSV file. Please upload a valid CSV and try again.")
+        _render_error("Could not read the selected dataset file.")
         return None
 
 
@@ -171,7 +188,8 @@ def _render_results(result: Any, structured_query: Any) -> None:
         st.markdown("**Chart**")
         figure = result.chart_data.get("figure")
         if figure is not None:
-            st.plotly_chart(figure, use_container_width=True)
+            st.pyplot(figure, use_container_width=True)
+            plt.close(figure)
         else:
             st.info("Chart output is missing from the backend response.")
 
@@ -187,16 +205,16 @@ def main() -> None:
     _init_state()
 
     st.title("CSV Analyst Assistant")
-    st.caption("Upload a CSV and ask a question in natural language.")
+    st.caption("Select a dataset and ask a question in natural language.")
     st.divider()
 
-    st.header("1) Upload Dataset")
+    st.header("1) Select Dataset")
     df = _load_uploaded_csv()
     if df is None:
-        st.info("No file uploaded yet. Add a CSV file to begin.")
+        st.info("Select a dataset to begin.")
         return
     if df.empty:
-        st.warning("This CSV is empty. Please upload a file with at least one row.")
+        st.warning("The selected dataset is empty.")
         return
 
     st.subheader("Dataset Overview")
